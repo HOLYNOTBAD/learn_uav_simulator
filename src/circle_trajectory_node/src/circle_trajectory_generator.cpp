@@ -19,6 +19,7 @@ private:
     ros::Time start_time_; // 起始时间
     
 public:
+    //这是构造函数，初始化参数和发布器
     CircleTrajectoryGenerator() : nh_("~") {
         // 读取参数，若无则用默认值
         nh_.param("circle/center_x", center_x_, 0.0); // 圆心x
@@ -64,6 +65,7 @@ public:
         cmd.header.stamp = ros::Time::now(); // 时间戳
         cmd.header.frame_id = "world"; // 坐标系
         
+        //这个仿真器需要输入的位置、速度、加速度和偏航角
         cmd.position.x = x;
         cmd.position.y = y;
         cmd.position.z = z;
@@ -82,7 +84,8 @@ public:
         // 控制增益设置
         cmd.kx[0] = 5.7; cmd.kx[1] = 5.7; cmd.kx[2] = 6.2; // 位置增益
         cmd.kv[0] = 3.4; cmd.kv[1] = 3.4; cmd.kv[2] = 4.0; // 速度增益
-        
+        publishTrajectoryVisualization(); // 发布一次完整圆形轨迹用于rviz显示
+
         cmd_pub_.publish(cmd); // 发布指令
     }
     

@@ -137,6 +137,8 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/circle_trajectory_node_node.cpp)
 add_executable(circle_trajectory_node src/circle_trajectory_generator.cpp)
+add_executable(square_trajectory_node src/square_trajectory_generator.cpp)
+add_executable(marker_publisher src/test.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -152,6 +154,12 @@ add_executable(circle_trajectory_node src/circle_trajectory_generator.cpp)
 #   ${catkin_LIBRARIES}
 # )
 target_link_libraries(circle_trajectory_node
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(square_trajectory_node
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(marker_publisher
   ${catkin_LIBRARIES}
 )
 #############
