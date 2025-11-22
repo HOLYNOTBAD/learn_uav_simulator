@@ -1,0 +1,15 @@
+{
+    "ros.distro": "noetic",
+    "python.autoComplete.extraPaths": [
+        "/home/holy/learn_uav_simulator/devel/lib/python3/dist-packages",
+        "/home/holy/IL_Planner/devel/lib/python3/dist-packages",
+        "/home/holy/Fast-Planner/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/holy/learn_uav_simulator/devel/lib/python3/dist-packages",
+        "/home/holy/IL_Planner/devel/lib/python3/dist-packages",
+        "/home/holy/Fast-Planner/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ]
+}
