@@ -4,13 +4,10 @@
         {
             "label": "ROS: central_catkin_make",
             "type": "shell",
-            "command": "catkin_make",
+            "command": "/usr/bin/bash",
             "args": [
-                "--directory",
-				"${workspaceFolder}",
-                "-j4",
-                "-DCMAKE_BUILD_TYPE=Debug",
-                "-DCMAKE_EXPORT_COMPILE_COMMANDS=1"
+                "-ic",
+                "catkin_make --directory ${workspaceFolder} -j$(nproc) -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DPYTHON_EXECUTABLE=/usr/bin/python3"
             ],
             "problemMatcher": "$catkin-gcc",
             "group": {
