@@ -35,6 +35,11 @@ SDFMap::Ptr sdf_map_;
 EDTEnvironment::Ptr edt_environment_;
 unique_ptr<KinodynamicAstar> kino_path_finder_;
 PlanningVisualization::Ptr visualization_;
+nav_msgs::Odometry new_odom;
+ros::Publisher new_odom_pub_;
+ros::Subscriber waypoint_sub_, odom_sub_;
+ros::Timer exec_timer_;
+ros::NodeHandle* g_nh = nullptr;  // 全局 NodeHandle 指针
 
 void waypointCallback(const nav_msgs::PathConstPtr& msg) ;
 void odometryCallback(const nav_msgs::OdometryConstPtr& msg) ;
@@ -50,6 +55,7 @@ void getPath();
 int main(int argc, char** argv) {
   ros::init(argc, argv, "Astar_test_node");
   ros::NodeHandle nh("~");
+  g_nh = &nh;  // 保存指针，防止销毁
 
     sdf_map_.reset(new SDFMap);
     sdf_map_->initMap(nh);
@@ -63,16 +69,20 @@ int main(int argc, char** argv) {
 
     visualization_.reset(new PlanningVisualization(nh));
  
-    ros::Timer exec_timer_;
-    ros::Subscriber waypoint_sub_, odom_sub_;
-    //ros::Publisher replan_pub_, new_pub_, bspline_pub_;
-    
     exec_timer_   = nh.createTimer(ros::Duration(0.01), execFSMCallback);
     waypoint_sub_ = nh.subscribe("/waypoint_generator/waypoints", 1, waypointCallback);
     odom_sub_     = nh.subscribe("/odom_world", 1, odometryCallback);
-
+    new_odom_pub_ = nh.advertise<nav_msgs::Odometry>("/new_odom_world", 10);
+    
+  ROS_INFO("Initialization complete, starting main loop");
   ros::Duration(1.0).sleep();
-  ros::spin();
+  
+  // 主循环，不使用 ros::spin()，而是手动循环处理 ROS 事件
+  ros::Rate loop_rate(100);  // 100 Hz
+  while (ros::ok()) {
+    ros::spinOnce();  // 处理回调
+    loop_rate.sleep();
+  }
 
   return 0;
 }
@@ -88,6 +98,9 @@ void waypointCallback(const nav_msgs::PathConstPtr& msg) {
 
   end_pt_ << msg->poses[0].pose.position.x, msg->poses[0].pose.position.y, 1.0;
 
+  // 更新可视化中的目标点及方向(pose 信息包括了位置和方向)
+  new_odom.header = msg->header;
+  new_odom.pose.pose = msg->poses[0].pose;
 
   visualization_->drawGoal(end_pt_, 0.3, Eigen::Vector4d(1, 0, 0, 1.0));
   end_vel_.setZero();
@@ -175,6 +188,14 @@ void execFSMCallback(const ros::TimerEvent& e) {
     }
 
     case EXEC_TRAJ: {
+      // 更新局部地图,发布new_odom
+      if (new_odom_pub_) {  // 检查发布者是否有效
+        new_odom.header.stamp = ros::Time::now();  // 确保时间戳更新
+        new_odom_pub_.publish(new_odom);
+        start_pt_ = odom_pos_;
+      } else {
+        ROS_WARN_ONCE("new_odom_pub_ is not initialized");
+      }
       /* determine if need to replan */
         return;
     }

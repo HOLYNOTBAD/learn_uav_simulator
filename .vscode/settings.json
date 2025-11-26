@@ -14,5 +14,7 @@
         "/home/holy/learn_uav_simulator/devel/lib/python3/dist-packages",
         "/opt/ros/noetic/lib/python3/dist-packages"
     ],
+    "trae.tab.enableRename": false,
+    "trae.tab.enableAutoImport": false,
 
 }
