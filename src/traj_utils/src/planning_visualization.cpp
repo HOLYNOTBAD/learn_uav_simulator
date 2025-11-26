@@ -25,8 +25,7 @@
 
 #include <traj_utils/planning_visualization.h>
 
-using std::cout;
-using std::endl;
+
 PlanningVisualization::PlanningVisualization(ros::NodeHandle& nh) {
   node = nh;
 

@@ -248,11 +248,6 @@ bool kinodynamicReplan(Eigen::Vector3d start_pt, Eigen::Vector3d start_vel,
     return false;
   }
 
-
-  Eigen::Vector3d init_pos = start_pt;
-  Eigen::Vector3d init_vel = start_vel;
-  Eigen::Vector3d init_acc = start_acc;
-
   // kinodynamic path searching
 
   kino_path_finder_->reset();

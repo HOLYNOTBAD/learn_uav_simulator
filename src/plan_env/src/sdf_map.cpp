@@ -109,6 +109,7 @@ void SDFMap::initMap(ros::NodeHandle& nh) {
   md_.occupancy_buffer_ = vector<double>(buffer_size, mp_.clamp_min_log_ - mp_.unknown_flag_);
   md_.occupancy_buffer_neg = vector<char>(buffer_size, 0);
   md_.occupancy_buffer_inflate_ = vector<char>(buffer_size, 0);
+  md_.occupancy_buffer_inflate_prev_ = vector<char>(buffer_size, 0);  // 初始化上一帧缓冲区
 
   md_.distance_buffer_ = vector<double>(buffer_size, 10000);
   md_.distance_buffer_neg_ = vector<double>(buffer_size, 10000);
@@ -129,6 +130,10 @@ void SDFMap::initMap(ros::NodeHandle& nh) {
   /* init callback */
 
   depth_sub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(node_, "/sdf_map/depth", 50));
+
+  // 独立的 depth 订阅者，用于触发地图更新
+  indep_depth_sub_ = 
+      node_.subscribe<sensor_msgs::Image>("/sdf_map/depth", 50, &SDFMap::depthCallback, this);
 
   if (mp_.pose_type_ == POSE_STAMPED) {
     pose_sub_.reset(
@@ -159,6 +164,8 @@ void SDFMap::initMap(ros::NodeHandle& nh) {
 
   map_pub_ = node_.advertise<sensor_msgs::PointCloud2>("/sdf_map/occupancy", 10);
   map_inf_pub_ = node_.advertise<sensor_msgs::PointCloud2>("/sdf_map/occupancy_inflate", 10);
+  map_inf_pub_curr_ = node_.advertise<sensor_msgs::PointCloud2>("/sdf_map/occupancy_inflate_curr", 10);  // 当前地图
+  map_inf_pub_prev_ = node_.advertise<sensor_msgs::PointCloud2>("/sdf_map/occupancy_inflate_prev", 10);  // 上一时刻地图
   esdf_pub_ = node_.advertise<sensor_msgs::PointCloud2>("/sdf_map/esdf", 10);
   update_range_pub_ = node_.advertise<visualization_msgs::Marker>("/sdf_map/update_range", 10);
 
@@ -765,6 +772,8 @@ void SDFMap::clearAndInflateLocalMap() {
 void SDFMap::visCallback(const ros::TimerEvent& /*event*/) {
   publishMap();
   publishMapInflate(false);
+  publishMapInflateCurr();  // 发布当前地图
+  publishMapInflatePrev();  // 发布上一时刻地图
   // publishUpdateRange();
   // publishESDF();
 
@@ -778,6 +787,9 @@ void SDFMap::updateOccupancyCallback(const ros::TimerEvent& /*event*/) {
   /* update occupancy */
   ros::Time t1, t2;
   t1 = ros::Time::now();
+
+  // 在处理新观测前，保存当前的 inflate 地图为上一帧地图
+  md_.occupancy_buffer_inflate_prev_ = md_.occupancy_buffer_inflate_;
 
   projectDepthImage();
   raycastProcess();
@@ -848,13 +860,14 @@ void SDFMap::depthPoseCallback(const sensor_msgs::ImageConstPtr& img,
 }
 
 void SDFMap::odomCallback(const nav_msgs::OdometryConstPtr& odom) {
-  if (md_.has_first_depth_) return;
-
   md_.camera_pos_(0) = odom->pose.pose.position.x;
   md_.camera_pos_(1) = odom->pose.pose.position.y;
   md_.camera_pos_(2) = odom->pose.pose.position.z;
 
   md_.has_odom_ = true;
+  
+  // 标记需要更新地图，这样即使 depthOdomCallback 没有被触发，也能处理最新的观测
+  md_.occ_need_update_ = true;
 }
 
 void SDFMap::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& img) {
@@ -1043,6 +1056,51 @@ void SDFMap::publishMapInflate(bool all_info) {
   boundIndex(min_cut);
   boundIndex(max_cut);
 
+  // 选择要发布的缓冲区：如果 prev 为空，则使用当前的 inflate 缓冲区
+  const std::vector<char>& buffer_to_use = 
+      (md_.occupancy_buffer_inflate_prev_.empty() || 
+       std::count(md_.occupancy_buffer_inflate_prev_.begin(), 
+                  md_.occupancy_buffer_inflate_prev_.end(), 1) == 0) ?
+      md_.occupancy_buffer_inflate_ : md_.occupancy_buffer_inflate_prev_;
+
+  for (int x = min_cut(0); x <= max_cut(0); ++x)
+    for (int y = min_cut(1); y <= max_cut(1); ++y)
+      for (int z = min_cut(2); z <= max_cut(2); ++z) {
+        if (buffer_to_use[toAddress(x, y, z)] == 0) continue;
+
+        Eigen::Vector3d pos;
+        indexToPos(Eigen::Vector3i(x, y, z), pos);
+        if (pos(2) > mp_.visualization_truncate_height_) continue;
+
+        pt.x = pos(0);
+        pt.y = pos(1);
+        pt.z = pos(2);
+        cloud.push_back(pt);
+      }
+
+  cloud.width = cloud.points.size();
+  cloud.height = 1;
+  cloud.is_dense = true;
+  cloud.header.frame_id = mp_.frame_id_;
+  sensor_msgs::PointCloud2 cloud_msg;
+
+  pcl::toROSMsg(cloud, cloud_msg);
+  map_inf_pub_.publish(cloud_msg);
+
+  // ROS_INFO("pub map");
+}
+
+// 发布当前时刻的地图（当前 odom 对应的地图）
+void SDFMap::publishMapInflateCurr() {
+  pcl::PointXYZ pt;
+  pcl::PointCloud<pcl::PointXYZ> cloud;
+
+  Eigen::Vector3i min_cut = md_.local_bound_min_;
+  Eigen::Vector3i max_cut = md_.local_bound_max_;
+
+  boundIndex(min_cut);
+  boundIndex(max_cut);
+
   for (int x = min_cut(0); x <= max_cut(0); ++x)
     for (int y = min_cut(1); y <= max_cut(1); ++y)
       for (int z = min_cut(2); z <= max_cut(2); ++z) {
@@ -1065,9 +1123,43 @@ void SDFMap::publishMapInflate(bool all_info) {
   sensor_msgs::PointCloud2 cloud_msg;
 
   pcl::toROSMsg(cloud, cloud_msg);
-  map_inf_pub_.publish(cloud_msg);
+  map_inf_pub_curr_.publish(cloud_msg);
+}
 
-  // ROS_INFO("pub map");
+// 发布上一时刻的地图（上一个 odom 对应的地图，用于规划）
+void SDFMap::publishMapInflatePrev() {
+  pcl::PointXYZ pt;
+  pcl::PointCloud<pcl::PointXYZ> cloud;
+
+  Eigen::Vector3i min_cut = md_.local_bound_min_;
+  Eigen::Vector3i max_cut = md_.local_bound_max_;
+
+  boundIndex(min_cut);
+  boundIndex(max_cut);
+
+  for (int x = min_cut(0); x <= max_cut(0); ++x)
+    for (int y = min_cut(1); y <= max_cut(1); ++y)
+      for (int z = min_cut(2); z <= max_cut(2); ++z) {
+        if (md_.occupancy_buffer_inflate_prev_[toAddress(x, y, z)] == 0) continue;
+
+        Eigen::Vector3d pos;
+        indexToPos(Eigen::Vector3i(x, y, z), pos);
+        if (pos(2) > mp_.visualization_truncate_height_) continue;
+
+        pt.x = pos(0);
+        pt.y = pos(1);
+        pt.z = pos(2);
+        cloud.push_back(pt);
+      }
+
+  cloud.width = cloud.points.size();
+  cloud.height = 1;
+  cloud.is_dense = true;
+  cloud.header.frame_id = mp_.frame_id_;
+  sensor_msgs::PointCloud2 cloud_msg;
+
+  pcl::toROSMsg(cloud, cloud_msg);
+  map_inf_pub_prev_.publish(cloud_msg);
 }
 
 void SDFMap::publishUnknown() {
@@ -1303,7 +1395,15 @@ void SDFMap::depthOdomCallback(const sensor_msgs::ImageConstPtr& img,
 }
 
 void SDFMap::depthCallback(const sensor_msgs::ImageConstPtr& img) {
-  std::cout << "depth: " << img->header.stamp << std::endl;
+  // 保存深度图像，使用最新的 odom 数据（即使 depthOdomCallback 没有被触发）
+  cv_bridge::CvImagePtr cv_ptr;
+  cv_ptr = cv_bridge::toCvCopy(img, img->encoding);
+  if (img->encoding == sensor_msgs::image_encodings::TYPE_32FC1) {
+    (cv_ptr->image).convertTo(cv_ptr->image, CV_16UC1, mp_.k_depth_scaling_factor_);
+  }
+  cv_ptr->image.copyTo(md_.depth_image_);
+  
+  md_.occ_need_update_ = true;  // 标记需要更新地图
 }
 
 void SDFMap::poseCallback(const geometry_msgs::PoseStampedConstPtr& pose) {

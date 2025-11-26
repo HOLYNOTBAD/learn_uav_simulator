@@ -95,6 +95,7 @@ struct MappingData {
   std::vector<double> occupancy_buffer_;
   std::vector<char> occupancy_buffer_neg;
   std::vector<char> occupancy_buffer_inflate_;
+  std::vector<char> occupancy_buffer_inflate_prev_;  // 上一帧的 inflate 缓冲区
   std::vector<double> distance_buffer_;
   std::vector<double> distance_buffer_neg_;
   std::vector<double> distance_buffer_all_;
@@ -187,6 +188,8 @@ public:
 
   void publishMap();
   void publishMapInflate(bool all_info = false);
+  void publishMapInflateCurr();  // 发布当前时刻的地图
+  void publishMapInflatePrev();  // 发布上一时刻的地图
   void publishESDF();
   void publishUpdateRange();
 
@@ -256,6 +259,7 @@ private:
 
   ros::Subscriber indep_depth_sub_, indep_odom_sub_, indep_pose_sub_, indep_cloud_sub_;
   ros::Publisher map_pub_, esdf_pub_, map_inf_pub_, update_range_pub_;
+  ros::Publisher map_inf_pub_curr_, map_inf_pub_prev_;  // 当前和上一时刻的地图（不同颜色）
   ros::Publisher unknown_pub_, depth_pub_;
   ros::Timer occ_timer_, esdf_timer_, vis_timer_;
 
