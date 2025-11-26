@@ -28,6 +28,8 @@ Eigen::Quaterniond odom_orient_;
 
 FSM_EXEC_STATE exec_state_;
 
+double max_vel_, max_acc_;
+
 
 SDFMap::Ptr sdf_map_;
 EDTEnvironment::Ptr edt_environment_;
@@ -43,7 +45,7 @@ bool callKinodynamicReplan() ; // 定义一个函数，用于调用动力学重�
 bool kinodynamicReplan(Eigen::Vector3d start_pt, Eigen::Vector3d start_vel,
                                            Eigen::Vector3d start_acc, Eigen::Vector3d end_pt,
                                            Eigen::Vector3d end_vel) ;
-
+void getPath();
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "Astar_test_node");
@@ -59,7 +61,8 @@ int main(int argc, char** argv) {
     kino_path_finder_->setEnvironment(edt_environment_);
     kino_path_finder_->init();
 
-
+    visualization_.reset(new PlanningVisualization(nh));
+ 
     ros::Timer exec_timer_;
     ros::Subscriber waypoint_sub_, odom_sub_;
     //ros::Publisher replan_pub_, new_pub_, bspline_pub_;
@@ -80,6 +83,8 @@ void waypointCallback(const nav_msgs::PathConstPtr& msg) {
 
   cout << "Triggered!" << endl;
   trigger_ = true;
+  cout << "New target: " << msg->poses[0].pose.position.x << ", "
+       << msg->poses[0].pose.position.y << ", " << msg->poses[0].pose.position.z << endl;
 
   end_pt_ << msg->poses[0].pose.position.x, msg->poses[0].pose.position.y, 1.0;
 
@@ -193,6 +198,13 @@ bool callKinodynamicReplan()  { // 定义一个函数，用于调用动力学重
 
   if (plan_success) { // 如果路径规划成功
 
+    // 获取轨迹点并可视化
+    std::vector<Eigen::Vector3d> path_points = kino_path_finder_->getKinoTraj(0.05); // 0.05是时间步长
+    
+    // 使用PlanningVisualization类显示轨迹线
+    visualization_->drawGeometricPath(kino_path_finder_-> getKinoTraj(0.05), 0.1, Eigen::Vector4d(0, 1, 0, 1), 200);
+
+    ROS_INFO("KINO A* path visualized");
     return true; // 函数返回true，表示规划和后续处理全部成功
 
   } else { // 如果路径规划失败

@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   geometry_msgs
+  nav_msgs
   quadrotor_msgs  plan_env
   path_searching
   message_generation
@@ -23,7 +24,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 # catkin_package(CATKIN_DEPENDS message_runtime)
 catkin_package(
- INCLUDE_DIRS include
+ INCLUDE_DIRS 
  LIBRARIES plan_manage
  CATKIN_DEPENDS plan_env path_searching traj_utils message_runtime 
 #  DEPENDS system_lib
@@ -37,12 +38,19 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
 )
 
-add_executable(Astar_test_node
-  src/Astar_test_node.cpp
+add_executable(kinoAstar_test_node
+  src/kinoAstar_test_node.cpp
+  )
+
+add_executable(fake_odom
+  src/fake_odom.cpp
   )
 
 
-target_link_libraries(Astar_test_node 
+target_link_libraries(kinoAstar_test_node 
   ${catkin_LIBRARIES}
   )
 
+target_link_libraries(fake_odom
+  ${catkin_LIBRARIES}
+  )

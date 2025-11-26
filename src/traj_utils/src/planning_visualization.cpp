@@ -168,6 +168,13 @@ void PlanningVisualization::displayLineList(const vector<Eigen::Vector3d>& list1
   ros::Duration(0.001).sleep();
 }
 
+
+
+void PlanningVisualization::drawGeometricPath(const vector<Eigen::Vector3d>& path, double resolution,
+                                              const Eigen::Vector4d& color, int id) {
+  displaySphereList(path, resolution, color, PATH + id % 100);
+  ROS_INFO("draw path size: %d", path.size());
+}
 // void PlanningVisualization::drawBsplinesPhase1(vector<NonUniformBspline>& bsplines, double size) {
 //   vector<Eigen::Vector3d> empty;
 

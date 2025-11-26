@@ -42,7 +42,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
   open_set_.push(cur_node);
   use_node_num_ += 1;
 
-  if (dynamic)
+  if (dynamic)  
   {
     time_origin_ = time_start;
     cur_node->time = time_start;
@@ -62,6 +62,8 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
   // A* search主循环
   while (!open_set_.empty())
   {
+    ROS_INFO("INLOOP");
+
     cur_node = open_set_.top();
 
     // Terminate?
@@ -69,11 +71,11 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
     bool near_end = abs(cur_node->index(0) - end_index(0)) <= tolerance &&
                     abs(cur_node->index(1) - end_index(1)) <= tolerance &&
                     abs(cur_node->index(2) - end_index(2)) <= tolerance;
-
+    // 到达目标点或超出搜索范围
     if (reach_horizon || near_end)
     {
       terminate_node = cur_node;
-      retrievePath(terminate_node);
+      retrievePath(terminate_node); // 从终止节点回溯路径
       if (near_end)
       {
         // Check whether shot traj exist
@@ -116,6 +118,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
       }
     }
     // Expand this node
+    ROS_INFO("expand node: %d, %d, %d, %f", cur_node->index(0), cur_node->index(1), cur_node->index(2), cur_node->time);
     open_set_.pop();
     cur_node->node_state = IN_CLOSE_SET; // 标记为已扩展
     iter_num_ += 1;
@@ -128,7 +131,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
     double pro_t;
     vector<Eigen::Vector3d> inputs;
     vector<double> durations;
-    if (init_search)
+    if (init_search)  // 如果是初始搜索，使用更宽的时间步长
     {
       inputs.push_back(start_acc_);
       for (double tau = time_res_init * init_max_tau_; tau <= init_max_tau_ + 1e-3;

@@ -85,7 +85,9 @@ public:
 
   void drawGoal(Eigen::Vector3d goal, double resolution, const Eigen::Vector4d& color, int id = 0);
   void drawPrediction(ObjPrediction pred, double resolution, const Eigen::Vector4d& color, int id = 0);
-
+  void drawGeometricPath(const vector<Eigen::Vector3d>& path, double resolution,
+                                              const Eigen::Vector4d& color, int id) ;
+                                
   Eigen::Vector4d getColor(double h, double alpha = 1.0);
 
   typedef std::shared_ptr<PlanningVisualization> Ptr;

@@ -8,13 +8,18 @@
   <arg name="odom_topic" value="/state_ukf/odom" />
 
   <!-- main algorithm params -->
-  <include file="$(find plan_manage)/launch/kino_algorithm.xml">
+  <include file="$(find plan_manage)/launch/kinoAstar_algorithm.xml">
 
     <arg name="map_size_x_" value="$(arg map_size_x)"/>
     <arg name="map_size_y_" value="$(arg map_size_y)"/>
     <arg name="map_size_z_" value="$(arg map_size_z)"/>
     <arg name="odometry_topic" value="$(arg odom_topic)"/>
 
+    <arg name="max_vel" value="3.0" />
+    <arg name="max_acc" value="2.0" />
+
+    <arg name="camera_pose_topic" value="/pcl_render_node/camera_pose"/>
+    <arg name="depth_topic" value="/pcl_render_node/depth"/>
     <arg name="cloud_topic" value="/pcl_render_node/cloud"/>
 
     <!-- intrinsic params of the depth camera -->
@@ -25,6 +30,36 @@
 
   </include>
 
+  <!-- fake odometry node -->
+  <node pkg="plan_manage" name="fake_odom" type="fake_odom" output="screen">
+    <!-- 设置参数 -->
+    <param name="fake_odom/rate" value="100.0" type="double"/>
+    
+    <!-- 位置参数 -->
+    <param name="fake_odom/position/x" value="0.0" type="double"/>
+    <param name="fake_odom/position/y" value="0.0" type="double"/>
+    <param name="fake_odom/position/z" value="0.0" type="double"/>
+    
+    <!-- 方向参数 (四元数) -->
+    <param name="fake_odom/orientation/x" value="0.0" type="double"/>
+    <param name="fake_odom/orientation/y" value="0.0" type="double"/>
+    <param name="fake_odom/orientation/z" value="0.0" type="double"/>
+    <param name="fake_odom/orientation/w" value="1.0" type="double"/>
+    
+    <!-- 线速度参数 -->
+    <param name="fake_odom/linear_velocity/x" value="0.0" type="double"/>
+    <param name="fake_odom/linear_velocity/y" value="0.0" type="double"/>
+    <param name="fake_odom/linear_velocity/z" value="0.0" type="double"/>
+    
+    <!-- 角速度参数 -->
+    <param name="fake_odom/angular_velocity/x" value="0.0" type="double"/>
+    <param name="fake_odom/angular_velocity/y" value="0.0" type="double"/>
+    <param name="fake_odom/angular_velocity/z" value="0.0" type="double"/>
+    
+    <!-- 重映射话题 -->
+    <remap from="/odom_world" to="$(arg odom_topic)"/>
+  </node>
+
   <node pkg="waypoint_generator" name="waypoint_generator" type="waypoint_generator" output="screen">
     <remap from="~odom" to="$(arg odom_topic)"/>        
     <remap from="~goal" to="/move_base_simple/goal"/>
@@ -33,7 +68,7 @@
   </node>
 
   <!-- use simulator -->
-  <include file="$(find path_searching)/launch/simulator.xml">
+  <include file="$(find plan_manage)/launch/map_simulator.xml">
     <arg name="map_size_x_" value="$(arg map_size_x)"/>
     <arg name="map_size_y_" value="$(arg map_size_y)"/>
     <arg name="map_size_z_" value="$(arg map_size_z)"/>
@@ -43,5 +78,7 @@
     <arg name="odometry_topic" value="$(arg odom_topic)" />
   </include>
 
+
+  <node name="rvizvisualisation" pkg="rviz" type="rviz" output="log" args="-d $(find plan_manage)/config/traj.rviz" />
 
 </launch>
